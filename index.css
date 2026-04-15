@@ -52,6 +52,10 @@ body {
   letter-spacing: 0.5px;
 }
 
+.header__logo-link {
+  text-decoration: none;
+}
+
 .header__logo span {
   color: var(--accent);
 }
@@ -64,6 +68,11 @@ body {
 .header__cart {
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+.header__cart-link {
+  text-decoration: none;
+  color: inherit;
 }
 
 .badge {
@@ -80,6 +89,7 @@ body {
 }
 
 .nav-btn {
+  display: inline-block;
   border: none;
   background: transparent;
   padding: 0.5rem 1rem;
@@ -87,6 +97,7 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--text-secondary);
+  text-decoration: none;
   transition: color 0.2s, background 0.2s;
 }
 
@@ -154,6 +165,7 @@ body {
 }
 
 .primary-btn {
+  display: inline-block;
   border-radius: 3px;
   border: none;
   padding: 0.6rem 1.25rem;
@@ -162,6 +174,7 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
+  text-decoration: none;
   transition: background 0.2s ease;
 }
 
@@ -370,6 +383,28 @@ body {
   color: var(--text-secondary);
   border-top: 1px solid var(--border);
   background: var(--bg-panel);
+}
+
+.footer__links {
+  display: flex;
+  gap: 1rem;
+}
+
+.footer__links a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer__links a:hover {
+  color: var(--accent-hover);
+}
+
+.cart-summary {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .catalog > h2 {
