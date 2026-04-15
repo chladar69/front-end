@@ -188,7 +188,7 @@ function App() {
                 className="primary-btn"
                 onClick={() => handleAddToCart(product)}
               >
-                {isDonate(product) ? 'Добавить донат' : 'Купить игру'}
+                {isDonate(product) ? 'Донат' : 'Купить игру'}
               </button>
               <button
                 className={liked ? 'secondary-btn secondary-btn--active' : 'secondary-btn'}
