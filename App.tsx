@@ -10,9 +10,13 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
-  const [cartItemIds, setCartItemIds] = useState<number[]>(() => {
-    const saved = localStorage.getItem('cartItemIds');
-    return saved ? (JSON.parse(saved) as number[]) : [];
+  const [cartItems, setCartItems] = useState<Record<number, number>>(() => {
+    const saved = localStorage.getItem('cartItems');
+    return saved ? (JSON.parse(saved) as Record<number, number>) : {};
+  });
+  const [libraryItems, setLibraryItems] = useState<Record<number, number>>(() => {
+    const saved = localStorage.getItem('libraryItems');
+    return saved ? (JSON.parse(saved) as Record<number, number>) : {};
   });
   const [likedIds, setLikedIds] = useState<number[]>(() => {
     const saved = localStorage.getItem('likedIds');
@@ -39,8 +43,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cartItemIds', JSON.stringify(cartItemIds));
-  }, [cartItemIds]);
+    localStorage.setItem('cartItems', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  useEffect(() => {
+    localStorage.setItem('libraryItems', JSON.stringify(libraryItems));
+  }, [libraryItems]);
 
   useEffect(() => {
     localStorage.setItem('likedIds', JSON.stringify(likedIds));
@@ -65,13 +73,37 @@ function App() {
     () => allProducts.filter((product) => likedIds.includes(product.id)),
     [allProducts, likedIds]
   );
-  const cartItems = useMemo(
-    () => allProducts.filter((product) => cartItemIds.includes(product.id)),
-    [allProducts, cartItemIds]
+  const cartProducts = useMemo(
+    () =>
+      allProducts
+        .map((product) => ({
+          product,
+          quantity: cartItems[product.id] ?? 0,
+        }))
+        .filter((item) => item.quantity > 0),
+    [allProducts, cartItems]
+  );
+  const libraryProducts = useMemo(
+    () =>
+      allProducts
+        .map((product) => ({
+          product,
+          quantity: libraryItems[product.id] ?? 0,
+        }))
+        .filter((item) => item.quantity > 0),
+    [allProducts, libraryItems]
+  );
+  const cartCount = useMemo(
+    () => Object.values(cartItems).reduce((sum, qty) => sum + qty, 0),
+    [cartItems]
   );
   const cartTotal = useMemo(
-    () => cartItems.reduce((sum, product) => sum + product.price, 0),
-    [cartItems]
+    () =>
+      cartProducts.reduce(
+        (sum, item) => sum + item.product.price * item.quantity,
+        0
+      ),
+    [cartProducts]
   );
 
   const filteredFavorites = useMemo(
@@ -89,14 +121,51 @@ function App() {
     [favorites, selectedCategory, searchQuery]
   );
 
-  const handleAddToCart = (id: number) =>
-    setCartItemIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  const isDonate = (product: Product) => product.categories.includes('donate');
+
+  const handleAddToCart = (product: Product) => {
+    setCartItems((prev) => {
+      const current = prev[product.id] ?? 0;
+      const nextQty = isDonate(product) ? current + 1 : 1;
+      return { ...prev, [product.id]: nextQty };
+    });
+  };
+
+  const handleChangeDonateQty = (productId: number, delta: number) => {
+    setCartItems((prev) => {
+      const current = prev[productId] ?? 0;
+      const next = current + delta;
+      if (next <= 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return { ...prev, [productId]: next };
+    });
+  };
+
   const handleRemoveFromCart = (id: number) =>
-    setCartItemIds((prev) => prev.filter((value) => value !== id));
+    setCartItems((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+
   const handlePay = () => {
-    if (cartItems.length === 0) return;
+    if (cartProducts.length === 0) return;
+    setLibraryItems((prev) => {
+      const next = { ...prev };
+      for (const item of cartProducts) {
+        const current = next[item.product.id] ?? 0;
+        const qtyToAdd = isDonate(item.product) ? item.quantity : 1;
+        next[item.product.id] = isDonate(item.product)
+          ? current + qtyToAdd
+          : 1;
+      }
+      return next;
+    });
     alert(`Оплата выполнена. Сумма: $${cartTotal.toFixed(2)}`);
-    setCartItemIds([]);
+    setCartItems({});
   };
 
   const handleToggleLike = (id: number) => {
@@ -115,8 +184,11 @@ function App() {
             <h3 className="card__title">{product.title}</h3>
             <p className="card__price">${product.price.toFixed(2)}</p>
             <div className="card__actions">
-              <button className="primary-btn" onClick={() => handleAddToCart(product.id)}>
-                Купить
+              <button
+                className="primary-btn"
+                onClick={() => handleAddToCart(product)}
+              >
+                {isDonate(product) ? 'Добавить донат' : 'Купить игру'}
               </button>
               <button
                 className={liked ? 'secondary-btn secondary-btn--active' : 'secondary-btn'}
@@ -152,13 +224,13 @@ function App() {
           <NavLink to="/contacts" className={({ isActive }) => `nav-btn ${isActive ? 'nav-btn--active' : ''}`}>
             Контакты
           </NavLink>
-          <NavLink to="/cart" className={({ isActive }) => `nav-btn ${isActive ? 'nav-btn--active' : ''}`}>
-            Корзина
+          <NavLink to="/library" className={({ isActive }) => `nav-btn ${isActive ? 'nav-btn--active' : ''}`}>
+            Библиотека
           </NavLink>
         </nav>
         <div className="header__cart">
           <Link to="/cart" className="header__cart-link">
-            Корзина: <span className="badge">{cartItemIds.length}</span>
+            Корзина: <span className="badge">{cartCount}</span>
           </Link>
         </div>
       </header>
@@ -228,7 +300,7 @@ function App() {
                     Найдено товаров: <strong>{filteredProducts.length}</strong>
                   </p>
                   <p>
-                    В корзине: <strong>{cartItemIds.length}</strong>
+                    В корзине: <strong>{cartCount}</strong>
                   </p>
                   <p>
                     Лайков: <strong>{likedIds.length}</strong>
@@ -280,17 +352,36 @@ function App() {
             element={
               <section className="catalog">
                 <h2>Корзина</h2>
-                {cartItems.length === 0 ? (
+                {cartProducts.length === 0 ? (
                   <p>Корзина пуста. Добавьте товары из каталога.</p>
                 ) : (
                   <>
                     <div className="catalog__grid">
-                      {cartItems.map((product) => (
+                      {cartProducts.map(({ product, quantity }) => (
                         <article key={product.id} className="card">
                           <img src={product.image} alt={product.title} className="card__image" />
                           <h3 className="card__title">{product.title}</h3>
-                          <p className="card__price">${product.price.toFixed(2)}</p>
+                          <p className="card__price">
+                            ${product.price.toFixed(2)} x {quantity}
+                          </p>
                           <div className="card__actions">
+                            {isDonate(product) && (
+                              <div className="qty-controls">
+                                <button
+                                  className="secondary-btn"
+                                  onClick={() => handleChangeDonateQty(product.id, -1)}
+                                >
+                                  -
+                                </button>
+                                <span>{quantity}</span>
+                                <button
+                                  className="secondary-btn"
+                                  onClick={() => handleChangeDonateQty(product.id, 1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
                             <button
                               className="secondary-btn secondary-btn--active"
                               onClick={() => handleRemoveFromCart(product.id)}
@@ -310,6 +401,32 @@ function App() {
                       </button>
                     </div>
                   </>
+                )}
+              </section>
+            }
+          />
+
+          <Route
+            path="/library"
+            element={
+              <section className="catalog">
+                <h2>Библиотека</h2>
+                {libraryProducts.length === 0 ? (
+                  <p>Пока пусто. Купленные товары появятся здесь после оплаты.</p>
+                ) : (
+                  <div className="catalog__grid">
+                    {libraryProducts.map(({ product, quantity }) => (
+                      <article key={product.id} className="card">
+                        <img src={product.image} alt={product.title} className="card__image" />
+                        <h3 className="card__title">{product.title}</h3>
+                        <p className="card__price">
+                          {isDonate(product)
+                            ? `Донат куплен: ${quantity} шт.`
+                            : 'Игра в библиотеке'}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
                 )}
               </section>
             }
